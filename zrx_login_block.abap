@@ -26,7 +26,7 @@ CALL FUNCTION 'RS_REFRESH_FROM_SELECTOPTIONS'
   EXPORTING
     curr_report     = sy-repid
   TABLES
-    selection_table = lt_selection_params
+    selection_table = gt_view
   EXCEPTIONS
     not_found       = 1
     no_report       = 2
@@ -117,14 +117,14 @@ IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
 
     ls_new_login_data = ls_old_login_data.
 
-    CONCATENATE sy-mandt ls_new_login_data-login INTO objectid.
+    CONCATENATE sy-mandt ls_new_login_data-login INTO lv_objectid.
     ls_new_login_data-PASSWORD = '0123456789'.
     ls_new_login_data-DATET = sy-datum.
 
 * for the history in RSSCD100
     CALL FUNCTION 'ZSD_IM_USERS_WRITE_DOCUMENT' 
     EXPORTING
-      objectid            = objectid "example 102RKHOLODKOV@ARMTEK.RU
+      objectid            = lv_objectid "example 102RKHOLODKOV@ARMTEK.RU
       tcode               = 'ZLOGIN'
       utime               = sy-uzeit
       udate               = sy-datum
@@ -133,7 +133,7 @@ IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
       o_zsd_im_users      = ls_old_login_data
       upd_zsd_im_users    = 'U'
     TABLES
-      icdtxt_zsd_im_users = icdtxt_zsd_im_users.
+      icdtxt_zsd_im_users = lt_icdtxt_zsd_im_users.
 
 * blocking login ETP
     UPDATE ZSD_IM_USERS SET
@@ -143,13 +143,13 @@ IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
 
 * message if was blocked
     lv_text = |Логин ЭТП { ZSD_IM_USERS_LOGIN } блокирован |.
-    INSERT lv_text INTO li_txline INDEX 1.
+    INSERT lv_text INTO lt_txline INDEX 1.
     CALL FUNCTION 'CATSXT_SIMPLE_TEXT_EDITOR' "text window
     EXPORTING
       im_title        = 'Для копирования в наряд'
       im_display_mode = 'X'
     CHANGING
-      ch_text         = li_txline[].
+      ch_text         = lt_txline[].
     ENDIF.
 ELSE.
 * message if canceled
