@@ -1,20 +1,20 @@
 
 *extra felds in SQ02:
-*ADRP_NAME_TEXT
-*TASK_NUMBER
-*USR02_GLTGB
-*USR21_BNAME
-*ZSD_IM_USERS_DATET
-*ZSD_IM_USERS_LOGIN
-*ZSD_IM_USERS_TABNUM
+*GV_ADRP_NAME_TEXT
+*GV_TASK_NUMBER
+*GV_USR02_GLTGB
+*GV_USR21_BNAME
+*GV_ZSD_IM_USERS_DATET
+*GV_ZSD_IM_USERS_LOGIN
+*GV_ZSD_IM_USERS_TABN
 *&---------------------------------------------------------------------*
 *& Code in 2 start-of-selection 
 *&---------------------------------------------------------------------*
 *& Get data from selection screen
 *&---------------------------------------------------------------------*
 DATA:
-  gt_view                        TYPE ztbpf_base_rsparams,   " z type is already in the system
-  ls_view                        LIKE LINE OF gt_view,
+  lt_view                        TYPE ztbpf_base_rsparams,   " z type is already in the system
+  ls_view                        LIKE LINE OF lt_view,
   lv_persnumber                  TYPE adrp-persnumber,
   lv_count_persnumber            TYPE i,
   lv_zsd_im_users_login          TYPE zsd_im_users-login,
@@ -44,7 +44,7 @@ CALL FUNCTION 'RS_REFRESH_FROM_SELECTOPTIONS'
   EXPORTING
     curr_report     = sy-repid
   TABLES
-    selection_table = gt_view
+    selection_table = lt_view
   EXCEPTIONS
     not_found       = 1
     no_report       = 2
@@ -55,30 +55,31 @@ IF sy-subrc NE 0.
   RETURN.
 ENDIF.
 * get tabnumber
-READ TABLE gt_view INTO ls_view WITH KEY SELNAME = 'SP$00001'." needed to check/correct  
+READ TABLE lt_view INTO ls_view WITH KEY SELNAME = 'SP$00003'." needed to check/correct  
 lv_tabnumber = ls_view-low.
-READ TABLE gt_view INTO ls_view WITH KEY SELNAME = 'SP$00003'." needed to check/correct 
-TASK_NUMBER = ls_view-low.
+READ TABLE lt_view INTO ls_view WITH KEY SELNAME = 'SP$00002'." needed to check/correct 
+GV_TASK_NUMBER = ls_view-low.
 
 IF STRLEN( lv_tabnumber ) < 11.
   MESSAGE 'Не верный табельный номер введен' TYPE 'I'.
   RETURN.
 ENDIF.
 
-ZSD_IM_USERS_TABNUM = lv_tabnumber.
+GV_ZSD_IM_USERS_TABN = lv_tabnumber.
 * get and set login
-SELECT COUNT( * ) INTO lv_count_tabnumber FROM zsd_im_users WHERE TABNUMBER = lv_tabnumber.
+SELECT COUNT( * ) INTO lv_count_tabnumber FROM ZSD_IM_USERS WHERE TABNUMBER = lv_tabnumber.
 IF lv_count_tabnumber < 2.
-  SELECT SINGLE login INTO lv_zsd_im_users_login FROM zsd_im_users WHERE TABNUMBER = lv_tabnumber.
-  SELECT SINGLE DATET INTO ZSD_IM_USERS_DATET FROM zsd_im_users WHERE TABNUMBER = lv_tabnumber.
+  SELECT SINGLE LOGIN DATET INTO (lv_zsd_im_users_login, GV_ZSD_IM_USERS_DATET)
+  FROM ZSD_IM_USERS
+  WHERE TABNUMBER = lv_tabnumber.
   IF sy-subrc NE 0.
     lv_zsd_im_users_login = 'нет логина ЭТП'.
     lv_text = 'Логина ЭТП нет'.
     INSERT lv_text INTO lt_txline INDEX 1.
   ELSE.
-    ZSD_IM_USERS_LOGIN = lv_zsd_im_users_login.
+    GV_ZSD_IM_USERS_LOGIN = lv_zsd_im_users_login.
     lv_is_login_ETP_found = abap_true.
-    IF ZSD_IM_USERS_DATET <= sy-datum.
+    IF GV_ZSD_IM_USERS_DATET <= sy-datum.
       lv_is_login_ETP_already_locked = abap_true.
     ENDIF.
   ENDIF.
@@ -89,18 +90,18 @@ ENDIF.
 * get persnumber, set login SAP and name
 SELECT COUNT( * ) INTO lv_count_persnumber FROM ADRP WHERE SORT2 = lv_tabnumber.
 IF lv_count_persnumber < 2.
-  SELECT SINGLE persnumber INTO lv_persnumber FROM ADRP WHERE SORT2 = lv_tabnumber.
+  SELECT SINGLE PERSNUMBER INTO lv_persnumber FROM ADRP WHERE SORT2 = lv_tabnumber.
     IF sy-subrc NE 0.
-      USR21_BNAME = 'нет логина SAP'.
-      ADRP_NAME_TEXT = 'нет логина SAP'.
+      GV_USR21_BNAME = 'нет логина SAP'.
+      GV_ADRP_NAME_TEXT = 'нет логина SAP'.
       lv_text = 'Логина SAP нет'.
       INSERT lv_text INTO lt_txline INDEX 1.
     ELSE.
-      SELECT SINGLE BNAME INTO USR21_BNAME FROM USR21 WHERE persnumber = lv_persnumber.
-      SELECT SINGLE NAME_TEXT INTO ADRP_NAME_TEXT FROM ADRP WHERE SORT2 = lv_tabnumber.
-      SELECT SINGLE GLTGB INTO USR02_GLTGB FROM USR02 WHERE BNAME = USR21_BNAME.
+      SELECT SINGLE BNAME INTO GV_USR21_BNAME FROM USR21 WHERE PERSNUMBER = lv_persnumber.
+      SELECT SINGLE NAME_TEXT INTO GV_ADRP_NAME_TEXT FROM ADRP WHERE SORT2 = lv_tabnumber.
+      SELECT SINGLE GLTGB INTO GV_USR02_GLTGB FROM USR02 WHERE BNAME = GV_USR21_BNAME.
       lv_is_login_SAP_found = abap_true.
-      IF USR02_GLTGB <= sy-datum.
+      IF GV_USR02_GLTGB <> '00000000' AND GV_USR02_GLTGB <= sy-datum.
         lv_is_login_SAP_already_locked = abap_true.
       ENDIF.
   ENDIF.
@@ -111,22 +112,22 @@ ENDIF.
 
 ls_new_login_data = ls_old_login_data.
 CONCATENATE sy-mandt ls_new_login_data-login INTO lv_objectid.
-ls_new_login_data-PASSWORD = |* deleted { TASK_NUMBER } *|.
+ls_new_login_data-PASSWORD = |* deleted { GV_TASK_NUMBER } *|.
 ls_new_login_data-DATET = sy-datum.
 * text for popup
 IF lv_is_login_ETP_found = abap_true.
-  lv_textline1 = |Найден логин ЭТП { ZSD_IM_USERS_LOGIN } |.
+  lv_textline1 = |Найден логин ЭТП { GV_ZSD_IM_USERS_LOGIN } |.
   IF lv_is_login_ETP_already_locked = abap_true.
-    lv_textline1 = |Логин ЭТП { ZSD_IM_USERS_LOGIN } уже блокирован ранее|.
+    lv_textline1 = |Логин ЭТП { GV_ZSD_IM_USERS_LOGIN } уже блокирован ранее|.
     INSERT lv_textline1 INTO lt_txline INDEX 1.
   ENDIF.
   ELSE.
     lv_textline1 = |Логин ЭТП не найден |.
 ENDIF.
 IF lv_is_login_SAP_found = abap_true.
-  lv_textline2 = |Найден логин SAP { USR21_BNAME } |.
+  lv_textline2 = |Найден логин SAP { GV_USR21_BNAME } |.
   IF lv_is_login_SAP_already_locked = abap_true.
-    lv_textline2 = |Логин SAP { USR21_BNAME } уже блокирован ранее|.
+    lv_textline2 = |Логин SAP { GV_USR21_BNAME } уже блокирован ранее|.
     INSERT lv_textline2 INTO lt_txline INDEX 1.
   ENDIF.
   ELSE.
@@ -155,10 +156,10 @@ CALL FUNCTION 'POPUP_TO_DECIDE'
 IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
 * user ETP
   IF lv_is_login_ETP_found = abap_true AND lv_is_login_ETP_already_locked <> abap_true.
-    SELECT * FROM zsd_im_users INTO CORRESPONDING FIELDS OF TABLE lt_old_login_data
-    WHERE login = ZSD_IM_USERS_LOGIN.
+    SELECT * FROM ZSD_IM_USERS INTO CORRESPONDING FIELDS OF TABLE lt_old_login_data
+    WHERE LOGIN = GV_ZSD_IM_USERS_LOGIN.
       IF sy-subrc = 0.
-        READ TABLE lt_old_login_data INTO ls_old_login_data WITH KEY login = ZSD_IM_USERS_LOGIN.
+        READ TABLE lt_old_login_data INTO ls_old_login_data WITH KEY login = GV_ZSD_IM_USERS_LOGIN.
         ELSE.
           MESSAGE 'No data found' TYPE 'I'.
           RETURN.
@@ -180,13 +181,13 @@ IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
     UPDATE ZSD_IM_USERS SET
       PASSWORD = @ls_new_login_data-PASSWORD,
       DATET   = @sy-datum
-    WHERE login = @ZSD_IM_USERS_LOGIN.
+    WHERE LOGIN = @GV_ZSD_IM_USERS_LOGIN.
 * message if was blocked
     IF sy-subrc = 0.
-      lv_text = |Логин ЭТП { ZSD_IM_USERS_LOGIN } блокирован |.
+      lv_text = |Логин ЭТП { GV_ZSD_IM_USERS_LOGIN } блокирован |.
       INSERT lv_text INTO lt_txline INDEX 1.
     ELSE.
-      lv_text = |Логин ЭТП { ZSD_IM_USERS_LOGIN } не был блокирован, проверьте вручную |.
+      lv_text = |Логин ЭТП { GV_ZSD_IM_USERS_LOGIN } не был блокирован, проверьте вручную |.
       INSERT lv_text INTO lt_txline INDEX 1.
     ENDIF.
   ELSE.
@@ -197,19 +198,19 @@ IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
   IF lv_is_login_SAP_found = abap_true AND lv_is_login_SAP_already_locked <> abap_true.
     CALL FUNCTION 'BAPI_USER_LOCK'
       EXPORTING 
-        USERNAME    = USR21_BNAME
+        USERNAME    = GV_USR21_BNAME
       TABLES
         return      = lt_result_bapi_user_lock.
     READ TABLE lt_result_bapi_user_lock INTO ls_result_bapi_user_lock INDEX 1.
     IF sy-subrc = 0.
         IF ls_result_bapi_user_lock-TYPE <> 'S'.
-        MESSAGE ls_result_bapi_user_lock-MESSAGE TYPE 'I'.
-        RETURN.
+          MESSAGE ls_result_bapi_user_lock-MESSAGE TYPE 'I'.
+          RETURN.
         ENDIF.  
       ENDIF.  
     CALL FUNCTION 'BAPI_USER_CHANGE'
       EXPORTING 
-        USERNAME    = USR21_BNAME
+        USERNAME    = GV_USR21_BNAME
         LOGONDATA   = ls_bapilogond
         LOGONDATAX  = ls_bapilogonx
       TABLES
@@ -221,7 +222,7 @@ IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
         RETURN.
       ENDIF.  
     ENDIF.  
-    lv_text = |Логин SAP { USR21_BNAME } блокирован |.
+    lv_text = |Логин SAP { GV_USR21_BNAME } блокирован |.
     INSERT lv_text INTO lt_txline INDEX 1.
   ELSE.
   ENDIF.
@@ -238,5 +239,5 @@ IF sy-subrc = 0 AND lv_answer = '1'.   " 1=Confirm, 2=Cancel
 ENDIF.
 
 * report's fields updating
-SELECT SINGLE DATET INTO ZSD_IM_USERS_DATET FROM zsd_im_users WHERE TABNUMBER = lv_tabnumber.
-SELECT SINGLE GLTGB INTO USR02_GLTGB FROM USR02 WHERE BNAME = USR21_BNAME.
+SELECT SINGLE DATET INTO GV_ZSD_IM_USERS_DATET FROM ZSD_IM_USERS WHERE TABNUMBER = lv_tabnumber.
+SELECT SINGLE GLTGB INTO GV_USR02_GLTGB FROM USR02 WHERE BNAME = GV_USR21_BNAME.
