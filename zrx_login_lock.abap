@@ -38,7 +38,11 @@ DATA:
   lt_txline                      TYPE STANDARD TABLE OF txline,
   lv_textline1                   TYPE string,
   lv_textline2                   TYPE string,
-  lv_textline3                   TYPE string.
+  lv_textline3                   TYPE string,
+  " lv_text_option1                TYPE string,
+  lv_text_option1                TYPE string DEFAULT 'БЛОКИРОВАТЬ',
+  lv_icon_text_option1           LIKE ICON-NAME DEFAULT 'ICON_MESSAGE_ERROR_SMALL'.
+  " lv_icon_text_option1           LIKE ICON-NAME.
 
 CALL FUNCTION 'RS_REFRESH_FROM_SELECTOPTIONS'
   EXPORTING
@@ -135,16 +139,34 @@ IF lv_is_login_SAP_found = abap_true.
 ENDIF.
 lv_textline3 = |Будет установлен пароль { ls_new_login_data-PASSWORD } и дата "по" сегодня|.
 * show popup
+" lv_text_option1 = 'БЛОКИРОВАТЬ'.
+" lv_icon_text_option1 = 'ICON_MESSAGE_ERROR_SMALL'.
+
+IF lv_is_login_ETP_already_locked = abap_true AND lv_is_login_SAP_already_locked = abap_true
+    OR lv_is_login_ETP_found NE abap_true AND lv_is_login_SAP_found NE abap_true.
+  lv_text_option1 = 'ПРОСМОТР'.
+  lv_icon_text_option1 = 'ICON_INFORMATION'.
+ENDIF.
+" IF lv_is_login_ETP_already_locked = abap_true
+"     AND lv_is_login_SAP_already_locked = abap_true.
+"   lv_text_option1 = 'ПРОСМОТР'.
+"   lv_icon_text_option1 = 'ICON_INFORMATION'.
+" ENDIF.
+" IF lv_is_login_ETP_found NE abap_true
+"     AND lv_is_login_SAP_found NE abap_true.
+"   lv_text_option1 = 'ПРОСМОТР'.
+"   lv_icon_text_option1 = 'ICON_INFORMATION'.
+" ENDIF.
 CALL FUNCTION 'POPUP_TO_DECIDE'
   EXPORTING
     titel           = |Табельный { lv_tabnumber }|
     textline1       = lv_textline1
     TEXTLINE2       = lv_textline2
     TEXTLINE3       = lv_textline3
-    TEXT_OPTION1    = 'БЛОКИРОВАТЬ'
+    TEXT_OPTION1    = lv_text_option1
     TEXT_OPTION2    = 'Cancel'
     CANCEL_DISPLAY  = ''
-    ICON_TEXT_OPTION1 = 'ICON_MESSAGE_ERROR_SMALL'
+    ICON_TEXT_OPTION1 = lv_icon_text_option1
   IMPORTING
     answer          = lv_answer
   EXCEPTIONS
